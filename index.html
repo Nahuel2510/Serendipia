@@ -356,10 +356,15 @@ hr{border:none;border-top:1px solid var(--divider);margin:var(--space-4) 0;}
 
 // ---- STORAGE ----
 const STORAGE_KEY = 'serendipia_v1';
+
 function loadData() {
-  try { const r = localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); } catch(e){}
+  try {
+    const r = localStorage.getItem(STORAGE_KEY);
+    if (r) return JSON.parse(r);
+  } catch(e){}
   return defaultData();
 }
+
 function defaultData() {
   return {
     config: {
@@ -373,8 +378,95 @@ function defaultData() {
     egresos: []
   };
 }
-function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(db,null,2)); }
-let db = loadData();
+function saveData() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(db, null, 2));
+  } catch (e) {
+    console.warn('No se pudo guardar localmente:', e);
+  }
+}
+
+let db = defaultData();
+
+async function syncFromSupabase() {
+  try {
+    const [vehRes, alqRes, egrRes] = await Promise.all([
+      supabaseClient.from('vehiculos').select('*'),
+      supabaseClient.from('alquileres').select('*'),
+      supabaseClient.from('egresos').select('*')
+    ]);
+
+    if (vehRes.error) throw vehRes.error;
+    if (alqRes.error) throw alqRes.error;
+    if (egrRes.error) throw egrRes.error;
+
+    const local = loadData();
+    const base = defaultData();
+
+    db = {
+      ...base,
+      config: {
+        ...base.config,
+        ...local.config,
+        vehiculos: (vehRes.data || []).map(v => ({
+          id: v.id,
+          patente: v.patente || '',
+          marca: v.marca || '',
+          tipo: v.tipo || '',
+          descripcion: v.descripcion || '',
+          fechaUltimoService: v.fecha_ultimo_service || '',
+          kmsUltimoService: Number(v.kms_ultimo_service || 0),
+          kmsActuales: Number(v.kms_actuales || 0),
+          otros: v.otros || ''
+        }))
+      },
+      alquileres: (alqRes.data || []).map(a => ({
+        id: a.id,
+        vehiculoId: a.vehiculo_id,
+        lugar: a.lugar || '',
+        responsable: a.responsable || '',
+        kmSalida: Number(a.km_salida || 0),
+        kmRetorno: a.km_retorno != null ? Number(a.km_retorno) : null,
+        estadoCubiertas: a.estado_cubiertas || '',
+        estadoCubiertasRetorno: a.estado_cubiertas_retorno || '',
+        observaciones: a.observaciones || '',
+        observacionesRetorno: a.observaciones_retorno || '',
+        fotos: a.fotos || [],
+        fotosRetorno: a.fotos_retorno || [],
+        clienteNombre: a.cliente_nombre || '',
+        clienteDNI: a.cliente_dni || '',
+        clienteTel: a.cliente_tel || '',
+        clienteEmail: a.cliente_email || '',
+        firma: a.firma || '',
+        fechaSalida: a.fecha_salida || '',
+        fechaRetorno: a.fecha_retorno || '',
+        fechaRetornoEstimada: a.fecha_retorno_estimada || '',
+        precioDia: Number(a.precio_dia || 0),
+        diasAlquiler: Number(a.dias_alquiler || 0),
+        precioTotal: Number(a.precio_total || 0),
+        medioPago: a.medio_pago || '',
+        estado: a.estado || 'activo',
+        createdAt: a.created_at || new Date().toISOString()
+      })),
+      egresos: (egrRes.data || []).map(e => ({
+        id: e.id,
+        fecha: e.fecha || '',
+        monto: Number(e.monto || 0),
+        categoria: e.categoria || '',
+        vehiculoId: e.vehiculo_id || null,
+        descripcion: e.descripcion || '',
+        createdAt: e.created_at || new Date().toISOString()
+      }))
+    };
+
+    saveData();
+    return true;
+  } catch (err) {
+    console.error('Error sincronizando con Supabase:', err);
+    db = loadData();
+    return false;
+  }
+}
 
 // ---- STATE ----
 const state = { user: null, demoMode: false, driveConnected: false };
