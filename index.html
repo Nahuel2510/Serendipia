@@ -1083,20 +1083,54 @@ function onDevolucionSelect() {
   tempPhotos=[]; tempVideos=[];
 }
 
-function submitDevolucion(e) {
+async function submitDevolucion(e) {
   e.preventDefault();
   const id = document.getElementById('dev-alquiler-sel').value;
-  const a = db.alquileres.find(al=>al.id===id);
-  if (!a) { toast('Alquiler no encontrado','error'); return; }
-  a.fechaRetorno = document.getElementById('dev-fecha').value;
-  a.kmRetorno = Number(document.getElementById('dev-km').value);
-  a.estadoCubiertasRetorno = document.getElementById('dev-cubiertas').value;
-  a.observacionesRetorno = document.getElementById('dev-obs').value;
-  a.fotosRetorno = tempPhotos.map(p=>p.data);
-  a.estado = 'finalizado';
-  const v = getVehicleById(a.vehiculoId);
-  if (v && a.kmRetorno) v.kmsActuales = a.kmRetorno;
-  saveData();
+  const a = db.alquileres.find(al => al.id === id);
+
+  if (!a) {
+    toast('Alquiler no encontrado', 'error');
+    return;
+  }
+
+  const fechaRetorno = document.getElementById('dev-fecha').value;
+  const kmRetorno = Number(document.getElementById('dev-km').value || 0);
+  const estadoCubiertasRetorno = document.getElementById('dev-cubiertas').value;
+  const observacionesRetorno = document.getElementById('dev-obs').value;
+  const fotosRetorno = tempPhotos.map(p => p.data);
+
+  try {
+    const { error } = await supabaseClient
+      .from('alquileres')
+      .update({
+        fecha_retorno: fechaRetorno,
+        km_retorno: kmRetorno,
+        estado_cubiertas_retorno: estadoCubiertasRetorno,
+        observaciones_retorno: observacionesRetorno,
+        fotos_retorno: fotosRetorno,
+        estado: 'finalizado'
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    const { error: vehErr } = await supabaseClient
+      .from('vehiculos')
+      .update({ kms_actuales: kmRetorno })
+      .eq('id', a.vehiculoId);
+
+    if (vehErr) throw vehErr;
+
+    tempPhotos = [];
+    tempVideos = [];
+    await syncFromSupabase();
+    toast('Devolución registrada en la nube', 'success');
+    navigateTo('dashboard');
+  } catch (err) {
+    console.error(err);
+    toast('Error al registrar devolución: ' + (err.message || err), 'error');
+  }
+}
   tempPhotos=[]; tempVideos=[];
   toast('✓ Devolución registrada correctamente','success');
   navigateTo('dashboard');
