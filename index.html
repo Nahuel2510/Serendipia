@@ -1687,8 +1687,25 @@ async function saveVeh() {
     toast('Error al guardar vehículo: ' + (err.message || err), 'error');
   }
 }
-function delVeh(id){ if(!confirm('¿Eliminar este vehículo? Se perderán sus datos de configuración.')) return; db.config.vehiculos=db.config.vehiculos.filter(v=>v.id!==id); saveData(); document.getElementById('t-vehiculos').innerHTML=tabVehiculos(); toast('Vehículo eliminado',''); }
+async function delVeh(id){
+  if(!confirm('Eliminar este vehículo? Se perderán sus datos de configuración.')) return;
 
+  try {
+    const { error } = await supabaseClient
+      .from('vehiculos')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    await syncFromSupabase();
+    document.getElementById('t-vehiculos').innerHTML = tabVehiculos();
+    toast('Vehículo eliminado de la nube', 'success');
+  } catch (err) {
+    console.error(err);
+    toast('Error al eliminar vehículo: ' + (err.message || err), 'error');
+  }
+}
 // ============================================================
 // EXPORT EXCEL
 // ============================================================
