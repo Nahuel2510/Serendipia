@@ -959,35 +959,59 @@ function openLightbox(src) {
   document.getElementById('img-lightbox').classList.remove('hidden');
 }
 
-function submitAlquiler(e) {
+async function submitAlquiler(e) {
   e.preventDefault();
   const vId = document.getElementById('v-vehiculo').value;
-  if (!vId) { toast('Seleccioná un vehículo','error'); return; }
-  const alquiler = {
+  if (!vId) {
+    toast('Seleccioná un vehículo', 'error');
+    return;
+  }
+
+  const payload = {
     id: genId(),
-    vehiculoId: vId,
+    vehiculo_id: vId,
     lugar: document.getElementById('v-lugar').value,
     responsable: document.getElementById('v-responsable').value,
-    kmSalida: Number(document.getElementById('v-km').value),
-    estadoCubiertas: document.getElementById('v-cubiertas').value,
+    km_salida: Number(document.getElementById('v-km').value || 0),
+    estado_cubiertas: document.getElementById('v-cubiertas').value,
     observaciones: document.getElementById('v-obs').value,
-    fotos: tempPhotos.map(p=>p.data),
-    clienteNombre: document.getElementById('c-nombre').value,
-    clienteDNI: document.getElementById('c-dni').value,
-    clienteTel: document.getElementById('c-tel').value,
-    clienteEmail: document.getElementById('c-email').value,
+    fotos: tempPhotos.map(p => p.data),
+    cliente_nombre: document.getElementById('c-nombre').value,
+    cliente_dni: document.getElementById('c-dni').value,
+    cliente_tel: document.getElementById('c-tel').value,
+    cliente_email: document.getElementById('c-email').value,
     firma: getSigDataUrl('sig-canvas'),
-    fechaSalida: document.getElementById('p-fecha-salida').value,
-    fechaRetornoEstimada: document.getElementById('p-fecha-retorno').value,
-    precioDia: Number(document.getElementById('p-dia').value),
-    diasAlquiler: Number(document.getElementById('p-dias').value),
-    precioTotal: Number(document.getElementById('p-total').value),
-    medioPago: document.getElementById('p-medio').value,
+    fecha_salida: document.getElementById('p-fecha-salida').value,
+    fecha_retorno_estimada: document.getElementById('p-fecha-retorno').value || null,
+    precio_dia: Number(document.getElementById('p-dia').value || 0),
+    dias_alquiler: Number(document.getElementById('p-dias').value || 0),
+    precio_total: Number(document.getElementById('p-total').value || 0),
+    medio_pago: document.getElementById('p-medio').value,
     estado: 'activo',
-    createdAt: new Date().toISOString()
+    created_at: new Date().toISOString()
   };
-  db.alquileres.push(alquiler);
-  saveData();
+
+  try {
+    const { error } = await supabaseClient.from('alquileres').insert([payload]);
+    if (error) throw error;
+
+    const { error: vehErr } = await supabaseClient
+      .from('vehiculos')
+      .update({ kms_actuales: payload.km_salida })
+      .eq('id', vId);
+
+    if (vehErr) throw vehErr;
+
+    tempPhotos = [];
+    tempVideos = [];
+    await syncFromSupabase();
+    toast('Alquiler registrado en la nube', 'success');
+    navigateTo('dashboard');
+  } catch (err) {
+    console.error(err);
+    toast('Error al registrar alquiler: ' + (err.message || err), 'error');
+  }
+}
   tempPhotos=[]; tempVideos=[];
   toast('✓ Alquiler registrado correctamente','success');
   navigateTo('dashboard');
