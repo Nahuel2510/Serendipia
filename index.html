@@ -580,21 +580,25 @@ function startGoogleLogin() {
 }
 function loginDemo() {
   state.demoMode = true;
-  state.user = {name:'Usuario Demo', email:'demo@serendipia.com'};
+  state.user = { name:'Usuario Demo', email:'demo@serendipia.com' };
   showApp();
-  toast('Modo Demo activo — datos guardados localmente','');
+  toast('Modo Demo activo', 'success');
 }
-function showApp() {
-  document.getElementById('login-screen').style.display='none';
-  document.getElementById('app').style.display='flex';
+
+async function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'flex';
   if (state.user) {
     const ini = state.user.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('user-avatar-initials').textContent=ini;
-    document.getElementById('user-name-sidebar').textContent=state.user.name;
-    document.getElementById('user-email-sidebar').textContent=state.user.email;
-    document.getElementById('user-info-sidebar').style.display='flex';
+    document.getElementById('user-avatar-initials').textContent = ini;
+    document.getElementById('user-name-sidebar').textContent = state.user.name;
+    document.getElementById('user-email-sidebar').textContent = state.user.email;
+    document.getElementById('user-info-sidebar').style.display = 'flex';
   }
-  if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display='flex';
+  if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display = 'flex';
+
+  const ok = await syncFromSupabase();
+  toast(ok ? 'Datos sincronizados con la nube' : 'Usando datos locales', ok ? 'success' : 'error');
   navigateTo('dashboard');
 }
 function logout() {
