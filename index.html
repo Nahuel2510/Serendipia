@@ -1628,15 +1628,42 @@ function modalVehiculo() {
 function openVehModal(){ const m=document.getElementById('modal-veh'); if(!m) return; document.getElementById('veh-id').value=''; document.getElementById('modal-veh-title').textContent='Agregar Vehículo'; ['veh-patente','veh-marca','veh-tipo','veh-desc','veh-otros'].forEach(id=>document.getElementById(id).value=''); document.getElementById('veh-fserv').value=''; document.getElementById('veh-kserv').value=''; m.classList.add('open'); }
 function closeVehModal(){ document.getElementById('modal-veh')?.classList.remove('open'); }
 function editVeh(id){ const v=getVehicleById(id); if(!v) return; document.getElementById('veh-id').value=v.id; document.getElementById('modal-veh-title').textContent='Editar Vehículo'; document.getElementById('veh-patente').value=v.patente||''; document.getElementById('veh-marca').value=v.marca||''; document.getElementById('veh-tipo').value=v.tipo||''; document.getElementById('veh-desc').value=v.descripcion||''; document.getElementById('veh-fserv').value=v.fechaUltimoService||''; document.getElementById('veh-kserv').value=v.kmsUltimoService||''; document.getElementById('veh-otros').value=v.otros||''; document.getElementById('modal-veh').classList.add('open'); }
-function saveVeh(){
-  const pat=document.getElementById('veh-patente').value.trim().toUpperCase();
-  if(!pat){ toast('La patente es obligatoria','error'); return; }
-  const id=document.getElementById('veh-id').value||genId();
-  const existing=db.config.vehiculos.find(v=>v.id===id);
-  const data={id,patente:pat,marca:document.getElementById('veh-marca').value,tipo:document.getElementById('veh-tipo').value,descripcion:document.getElementById('veh-desc').value,fechaUltimoService:document.getElementById('veh-fserv').value,kmsUltimoService:Number(document.getElementById('veh-kserv').value)||0,otros:document.getElementById('veh-otros').value};
-  if(existing) Object.assign(existing,data); else db.config.vehiculos.push(data);
-  saveData(); closeVehModal(); toast('✓ Vehículo guardado','success');
-  document.getElementById('t-vehiculos').innerHTML=tabVehiculos();
+async function saveVeh() {
+  const pat = document.getElementById('veh-patente').value.trim().toUpperCase();
+  if (!pat) {
+    toast('La patente es obligatoria', 'error');
+    return;
+  }
+
+  const id = document.getElementById('veh-id').value || genId();
+
+  const payload = {
+    id,
+    patente: pat,
+    marca: document.getElementById('veh-marca').value.trim(),
+    tipo: document.getElementById('veh-tipo').value.trim(),
+    descripcion: document.getElementById('veh-desc').value.trim(),
+    fecha_ultimo_service: document.getElementById('veh-fserv').value || null,
+    kms_ultimo_service: Number(document.getElementById('veh-kserv').value || 0),
+    kms_actuales: Number(document.getElementById('veh-kserv').value || 0),
+    otros: document.getElementById('veh-otros').value.trim()
+  };
+
+  try {
+    const { error } = await supabaseClient
+      .from('vehiculos')
+      .upsert([payload], { onConflict: 'id' });
+
+    if (error) throw error;
+
+    await syncFromSupabase();
+    closeVehModal();
+    toast('Vehículo guardado en la nube', 'success');
+    document.getElementById('t-vehiculos').innerHTML = tabVehiculos();
+  } catch (err) {
+    console.error(err);
+    toast('Error al guardar vehículo: ' + (err.message || err), 'error');
+  }
 }
 function delVeh(id){ if(!confirm('¿Eliminar este vehículo? Se perderán sus datos de configuración.')) return; db.config.vehiculos=db.config.vehiculos.filter(v=>v.id!==id); saveData(); document.getElementById('t-vehiculos').innerHTML=tabVehiculos(); toast('Vehículo eliminado',''); }
 
