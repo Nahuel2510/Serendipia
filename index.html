@@ -1005,11 +1005,7 @@ async function submitAlquiler(e) {
 
     if (vehErr) throw vehErr;
 
-    tempPhotos = [];
-    tempVideos = [];
-    await syncFromSupabase();
-    toast('Alquiler registrado en la nube', 'success');
-    navigateTo('dashboard');
+   
   } catch (err) {
     console.error(err);
     toast('Error al registrar alquiler: ' + (err.message || err), 'error');
