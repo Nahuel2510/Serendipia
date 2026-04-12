@@ -1441,8 +1441,30 @@ function closeNuevoEgreso() { document.getElementById('modal-egreso').classList.
 function saveEgreso() {
   const monto=Number(document.getElementById('ne-monto').value), cat=document.getElementById('ne-cat').value;
   if(!monto||!cat) { toast('Completá monto y categoría','error'); return; }
-  db.egresos.push({id:genId(),fecha:document.getElementById('ne-fecha').value,monto,categoria:cat,vehiculoId:document.getElementById('ne-veh').value||null,descripcion:document.getElementById('ne-desc').value,createdAt:new Date().toISOString()});
-  saveData(); closeNuevoEgreso(); toast('✓ Egreso registrado','success'); renderEgresosTable();
+    (async () => {
+    try {
+      const payload = {
+        id: genId(),
+        fecha: document.getElementById('ne-fecha').value,
+        monto,
+        categoria: cat,
+        vehiculo_id: document.getElementById('ne-veh').value || null,
+        descripcion: document.getElementById('ne-desc').value,
+        created_at: new Date().toISOString()
+      };
+
+      const { error } = await supabaseClient.from('egresos').insert([payload]);
+      if (error) throw error;
+
+      await syncFromSupabase();
+      closeNuevoEgreso();
+      toast('Egreso registrado en la nube', 'success');
+      renderEgresosTable();
+    } catch (err) {
+      console.error(err);
+      toast('Error al registrar egreso: ' + (err.message || err), 'error');
+    }
+  })();
 }
 function renderEgresosTable() {
   const from=document.getElementById('eg-from')?.value, to=document.getElementById('eg-to')?.value;
