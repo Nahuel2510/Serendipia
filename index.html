@@ -1013,16 +1013,6 @@ async function submitAlquiler(e) {
   }
 }
 
-  catch (err) {
-    console.error(err);
-    toast('Error al registrar alquiler: ' + (err.message || err), 'error');
-  }
-}
-  tempPhotos=[]; tempVideos=[];
-  toast('✓ Alquiler registrado correctamente','success');
-  navigateTo('dashboard');
-}
-
 // ============================================================
 // DEVOLUCIÓN
 // ============================================================
