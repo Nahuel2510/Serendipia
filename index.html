@@ -450,20 +450,21 @@ async function syncFromSupabase() {
       })),
       egresos: (egrRes.data || []).map(e => ({
         id: e.id,
-        fecha: e.fecha || '',
-        monto: Number(e.monto || 0),
-        categoria: e.categoria || '',
-        vehiculoId: e.vehiculo_id || null,
+        tipo: e.tipo || '',
         descripcion: e.descripcion || '',
+        monto: Number(e.monto || 0),
+        fecha: e.fecha || '',
+        medioPago: e.medio_pago || '',
+        notas: e.notas || '',
         createdAt: e.created_at || new Date().toISOString()
       }))
     };
 
-    saveData();
+    saveData(db);
     return true;
   } catch (err) {
-    console.error('Error sincronizando con Supabase:', err);
-    db = loadData();
+    console.error(err);
+    toast('Error al sincronizar con la nube: ' + (err.message || err), 'error');
     return false;
   }
 }
