@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Serendipia Rent a Car</title>
-
+  
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
     const SUPABASE_URL = 'https://zsrrdtqnxmvhnkbnrkfl.supabase.co';
@@ -356,15 +356,10 @@ hr{border:none;border-top:1px solid var(--divider);margin:var(--space-4) 0;}
 
 // ---- STORAGE ----
 const STORAGE_KEY = 'serendipia_v1';
-
 function loadData() {
-  try {
-    const r = localStorage.getItem(STORAGE_KEY);
-    if (r) return JSON.parse(r);
-  } catch(e){}
+  try { const r = localStorage.getItem(STORAGE_KEY); if(r) return JSON.parse(r); } catch(e){}
   return defaultData();
 }
-
 function defaultData() {
   return {
     config: {
@@ -378,96 +373,8 @@ function defaultData() {
     egresos: []
   };
 }
-function saveData() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(db, null, 2));
-  } catch (e) {
-    console.warn('No se pudo guardar localmente:', e);
-  }
-}
-
-let db = defaultData();
-
-async function syncFromSupabase() {
-  try {
-    const [vehRes, alqRes, egrRes] = await Promise.all([
-      supabaseClient.from('vehiculos').select('*'),
-      supabaseClient.from('alquileres').select('*'),
-      supabaseClient.from('egresos').select('*')
-    ]);
-
-    if (vehRes.error) throw vehRes.error;
-    if (alqRes.error) throw alqRes.error;
-    if (egrRes.error) throw egrRes.error;
-
-    const local = loadData();
-    const base = defaultData();
-
-    db = {
-      ...base,
-      config: {
-        ...base.config,
-        ...local.config,
-        vehiculos: (vehRes.data || []).map(v => ({
-          id: v.id,
-          patente: v.patente || '',
-          marca: v.marca || '',
-          tipo: v.tipo || '',
-          descripcion: v.descripcion || '',
-          fechaUltimoService: v.fecha_ultimo_service || '',
-          kmsUltimoService: Number(v.kms_ultimo_service || 0),
-          kmsActuales: Number(v.kms_actuales || 0),
-          otros: v.otros || ''
-        }))
-      },
-      alquileres: (alqRes.data || []).map(a => ({
-        id: a.id,
-        vehiculoId: a.vehiculo_id,
-        lugar: a.lugar || '',
-        responsable: a.responsable || '',
-        kmSalida: Number(a.km_salida || 0),
-        kmRetorno: a.km_retorno != null ? Number(a.km_retorno) : null,
-        estadoCubiertas: a.estado_cubiertas || '',
-        estadoCubiertasRetorno: a.estado_cubiertas_retorno || '',
-        observaciones: a.observaciones || '',
-        observacionesRetorno: a.observaciones_retorno || '',
-        fotos: a.fotos || [],
-        fotosRetorno: a.fotos_retorno || [],
-        clienteNombre: a.cliente_nombre || '',
-        clienteDNI: a.cliente_dni || '',
-        clienteTel: a.cliente_tel || '',
-        clienteEmail: a.cliente_email || '',
-        firma: a.firma || '',
-        fechaSalida: a.fecha_salida || '',
-        fechaRetorno: a.fecha_retorno || '',
-        fechaRetornoEstimada: a.fecha_retorno_estimada || '',
-        precioDia: Number(a.precio_dia || 0),
-        diasAlquiler: Number(a.dias_alquiler || 0),
-        precioTotal: Number(a.precio_total || 0),
-        medioPago: a.medio_pago || '',
-        estado: a.estado || 'activo',
-        createdAt: a.created_at || new Date().toISOString()
-      })),
-      egresos: (egrRes.data || []).map(e => ({
-        id: e.id,
-        tipo: e.tipo || '',
-        descripcion: e.descripcion || '',
-        monto: Number(e.monto || 0),
-        fecha: e.fecha || '',
-        medioPago: e.medio_pago || '',
-        notas: e.notas || '',
-        createdAt: e.created_at || new Date().toISOString()
-      }))
-    };
-
-    saveData(db);
-    return true;
-  } catch (err) {
-    console.error(err);
-    toast('Error al sincronizar con la nube: ' + (err.message || err), 'error');
-    return false;
-  }
-}
+function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(db,null,2)); }
+let db = loadData();
 
 // ---- STATE ----
 const state = { user: null, demoMode: false, driveConnected: false };
@@ -581,25 +488,21 @@ function startGoogleLogin() {
 }
 function loginDemo() {
   state.demoMode = true;
-  state.user = { name:'Usuario Demo', email:'demo@serendipia.com' };
+  state.user = {name:'Usuario Demo', email:'demo@serendipia.com'};
   showApp();
-  toast('Modo Demo activo', 'success');
+  toast('Modo Demo activo — datos guardados localmente','');
 }
-
-async function showApp() {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'flex';
+function showApp() {
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app').style.display='flex';
   if (state.user) {
     const ini = state.user.name.split(' ').map(w=>w[0]).join('').toUpperCase().slice(0,2);
-    document.getElementById('user-avatar-initials').textContent = ini;
-    document.getElementById('user-name-sidebar').textContent = state.user.name;
-    document.getElementById('user-email-sidebar').textContent = state.user.email;
-    document.getElementById('user-info-sidebar').style.display = 'flex';
+    document.getElementById('user-avatar-initials').textContent=ini;
+    document.getElementById('user-name-sidebar').textContent=state.user.name;
+    document.getElementById('user-email-sidebar').textContent=state.user.email;
+    document.getElementById('user-info-sidebar').style.display='flex';
   }
-  if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display = 'flex';
-
-  const ok = await syncFromSupabase();
-  toast(ok ? 'Datos sincronizados con la nube' : 'Usando datos locales', ok ? 'success' : 'error');
+  if (window.innerWidth <= 768) document.getElementById('menu-btn').style.display='flex';
   navigateTo('dashboard');
 }
 function logout() {
@@ -959,59 +862,39 @@ function openLightbox(src) {
   document.getElementById('lightbox-img').src = src;
   document.getElementById('img-lightbox').classList.remove('hidden');
 }
-async function submitAlquiler(e) {
+
+function submitAlquiler(e) {
   e.preventDefault();
-
   const vId = document.getElementById('v-vehiculo').value;
-  if (!vId) {
-    toast('Seleccioná un vehículo', 'error');
-    return;
-  }
-
-  const payload = {
+  if (!vId) { toast('Seleccioná un vehículo','error'); return; }
+  const alquiler = {
     id: genId(),
-    vehiculo_id: vId,
+    vehiculoId: vId,
     lugar: document.getElementById('v-lugar').value,
     responsable: document.getElementById('v-responsable').value,
-    km_salida: Number(document.getElementById('v-km').value || 0),
-    estado_cubiertas: document.getElementById('v-cubiertas').value,
+    kmSalida: Number(document.getElementById('v-km').value),
+    estadoCubiertas: document.getElementById('v-cubiertas').value,
     observaciones: document.getElementById('v-obs').value,
-    fotos: tempPhotos.map(p => p.data),
-    cliente_nombre: document.getElementById('c-nombre').value,
-    cliente_dni: document.getElementById('c-dni').value,
-    cliente_tel: document.getElementById('c-tel').value,
-    cliente_email: document.getElementById('c-email').value,
+    fotos: tempPhotos.map(p=>p.data),
+    clienteNombre: document.getElementById('c-nombre').value,
+    clienteDNI: document.getElementById('c-dni').value,
+    clienteTel: document.getElementById('c-tel').value,
+    clienteEmail: document.getElementById('c-email').value,
     firma: getSigDataUrl('sig-canvas'),
-    fecha_salida: document.getElementById('p-fecha-salida').value,
-    fecha_retorno_estimada: document.getElementById('p-fecha-retorno').value || null,
-    precio_dia: Number(document.getElementById('p-dia').value || 0),
-    dias_alquiler: Number(document.getElementById('p-dias').value || 0),
-    precio_total: Number(document.getElementById('p-total').value || 0),
-    medio_pago: document.getElementById('p-medio').value,
+    fechaSalida: document.getElementById('p-fecha-salida').value,
+    fechaRetornoEstimada: document.getElementById('p-fecha-retorno').value,
+    precioDia: Number(document.getElementById('p-dia').value),
+    diasAlquiler: Number(document.getElementById('p-dias').value),
+    precioTotal: Number(document.getElementById('p-total').value),
+    medioPago: document.getElementById('p-medio').value,
     estado: 'activo',
-    created_at: new Date().toISOString()
+    createdAt: new Date().toISOString()
   };
-
-  try {
-    const { error } = await supabaseClient.from('alquileres').insert([payload]);
-    if (error) throw error;
-
-    const { error: vehErr } = await supabaseClient
-      .from('vehiculos')
-      .update({ kms_actuales: payload.km_salida })
-      .eq('id', vId);
-
-    if (vehErr) throw vehErr;
-
-    tempPhotos = [];
-    tempVideos = [];
-    await syncFromSupabase();
-    toast('Alquiler registrado en la nube', 'success');
-    navigateTo('dashboard');
-  } catch (err) {
-    console.error(err);
-    toast('Error al registrar alquiler: ' + (err.message || err), 'error');
-  }
+  db.alquileres.push(alquiler);
+  saveData();
+  tempPhotos=[]; tempVideos=[];
+  toast('✓ Alquiler registrado correctamente','success');
+  navigateTo('dashboard');
 }
 
 // ============================================================
@@ -1079,93 +962,21 @@ function onDevolucionSelect() {
   document.getElementById('dev-km').min = a.kmSalida || 0;
   tempPhotos=[]; tempVideos=[];
 }
-async function submitDevolucion(e) {
+
+function submitDevolucion(e) {
   e.preventDefault();
-
   const id = document.getElementById('dev-alquiler-sel').value;
-  const a = db.alquileres.find(al => al.id === id);
-
-  if (!a) {
-    toast('Alquiler no encontrado', 'error');
-    return;
-  }
-
-  const fechaRetorno = document.getElementById('dev-fecha').value;
-  const kmRetorno = Number(document.getElementById('dev-km').value || 0);
-  const estadoCubiertasRetorno = document.getElementById('dev-cubiertas').value;
-  const observacionesRetorno = document.getElementById('dev-obs').value;
-  const fotosRetorno = tempPhotos.map(p => p.data);
-
-  try {
-    const { error } = await supabaseClient
-      .from('alquileres')
-      .update({
-        fecha_retorno: fechaRetorno,
-        km_retorno: kmRetorno,
-        estado_cubiertas_retorno: estadoCubiertasRetorno,
-        observaciones_retorno: observacionesRetorno,
-        fotos_retorno: fotosRetorno,
-        estado: 'finalizado'
-      })
-      .eq('id', id);
-
-    if (error) throw error;
-
-    const { error: vehErr } = await supabaseClient
-      .from('vehiculos')
-      .update({ kms_actuales: kmRetorno })
-      .eq('id', a.vehiculoId);
-
-    if (vehErr) throw vehErr;
-
-    tempPhotos = [];
-    tempVideos = [];
-    await syncFromSupabase();
-    toast('Devolución registrada en la nube', 'success');
-    navigateTo('dashboard');
-  } catch (err) {
-    console.error(err);
-    toast('Error al registrar devolución: ' + (err.message || err), 'error');
-  }
-}
-
-  const kmRetorno = Number(document.getElementById('dev-km').value || 0);
-  const estadoCubiertasRetorno = document.getElementById('dev-cubiertas').value;
-  const observacionesRetorno = document.getElementById('dev-obs').value;
-  const fotosRetorno = tempPhotos.map(p => p.data);
-
-  try {
-    const { error } = await supabaseClient
-      .from('alquileres')
-      .update({
-        fecha_retorno: fechaRetorno,
-        km_retorno: kmRetorno,
-        estado_cubiertas_retorno: estadoCubiertasRetorno,
-        observaciones_retorno: observacionesRetorno,
-        fotos_retorno: fotosRetorno,
-        estado: 'finalizado'
-      })
-      .eq('id', id);
-
-    if (error) throw error;
-
-    const { error: vehErr } = await supabaseClient
-      .from('vehiculos')
-      .update({ kms_actuales: kmRetorno })
-      .eq('id', a.vehiculoId);
-
-    if (vehErr) throw vehErr;
-
-    tempPhotos = [];
-    tempVideos = [];
-    await syncFromSupabase();
-    toast('Devolución registrada en la nube', 'success');
-    navigateTo('dashboard');
-  } catch (err) {
-    console.error(err);
-    toast('Error al registrar devolución: ' + (err.message || err), 'error');
-  }
-}
+  const a = db.alquileres.find(al=>al.id===id);
+  if (!a) { toast('Alquiler no encontrado','error'); return; }
+  a.fechaRetorno = document.getElementById('dev-fecha').value;
+  a.kmRetorno = Number(document.getElementById('dev-km').value);
+  a.estadoCubiertasRetorno = document.getElementById('dev-cubiertas').value;
+  a.observacionesRetorno = document.getElementById('dev-obs').value;
+  a.fotosRetorno = tempPhotos.map(p=>p.data);
+  a.estado = 'finalizado';
+  const v = getVehicleById(a.vehiculoId);
+  if (v && a.kmRetorno) v.kmsActuales = a.kmRetorno;
+  saveData();
   tempPhotos=[]; tempVideos=[];
   toast('✓ Devolución registrada correctamente','success');
   navigateTo('dashboard');
@@ -1476,30 +1287,8 @@ function closeNuevoEgreso() { document.getElementById('modal-egreso').classList.
 function saveEgreso() {
   const monto=Number(document.getElementById('ne-monto').value), cat=document.getElementById('ne-cat').value;
   if(!monto||!cat) { toast('Completá monto y categoría','error'); return; }
-    (async () => {
-    try {
-      const payload = {
-        id: genId(),
-        fecha: document.getElementById('ne-fecha').value,
-        monto,
-        categoria: cat,
-        vehiculo_id: document.getElementById('ne-veh').value || null,
-        descripcion: document.getElementById('ne-desc').value,
-        created_at: new Date().toISOString()
-      };
-
-      const { error } = await supabaseClient.from('egresos').insert([payload]);
-      if (error) throw error;
-
-      await syncFromSupabase();
-      closeNuevoEgreso();
-      toast('Egreso registrado en la nube', 'success');
-      renderEgresosTable();
-    } catch (err) {
-      console.error(err);
-      toast('Error al registrar egreso: ' + (err.message || err), 'error');
-    }
-  })();
+  db.egresos.push({id:genId(),fecha:document.getElementById('ne-fecha').value,monto,categoria:cat,vehiculoId:document.getElementById('ne-veh').value||null,descripcion:document.getElementById('ne-desc').value,createdAt:new Date().toISOString()});
+  saveData(); closeNuevoEgreso(); toast('✓ Egreso registrado','success'); renderEgresosTable();
 }
 function renderEgresosTable() {
   const from=document.getElementById('eg-from')?.value, to=document.getElementById('eg-to')?.value;
@@ -1520,26 +1309,8 @@ function renderEgresosTable() {
   ${rows.map(e=>{const v=e.vehiculoId?getVehicleById(e.vehiculoId):null;return`<tr><td>${fmtDate(e.fecha)}</td><td><span class="badge badge-blue">${e.categoria}</span></td><td>${v?v.patente:'<span class="text-muted">General</span>'}</td><td class="text-muted" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${e.descripcion||'-'}</td><td style="font-weight:700;color:var(--danger);font-variant-numeric:tabular-nums">${fmtMoney(e.monto)}</td><td><button class="btn btn-ghost btn-sm" style="color:var(--danger)" onclick="deleteEgreso('${e.id}')">✕</button></td></tr>`;}).join('')}
   </tbody></table></div>`;
 }
-async function deleteEgreso(id){
-  if(!confirm('Eliminar este egreso?')) return;
-
-  try {
-    const { error } = await supabaseClient
-      .from('egresos')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    await syncFromSupabase();
-    renderEgresosTable();
-    toast('Egreso eliminado de la nube', 'success');
-  } catch (err) {
-    console.error(err);
-    toast('Error al eliminar egreso: ' + (err.message || err), 'error');
-  }
-}
-  function exportEgresos(){ const rows=db.egresos.map(e=>{const v=e.vehiculoId?getVehicleById(e.vehiculoId):null;return{Fecha:e.fecha,Categoria:e.categoria,Vehiculo:v?(v.patente+' '+(v.marca||'')):'General',Descripcion:e.descripcion,'Monto ARS':e.monto};}); exportToExcel(rows,'Egresos_Serendipia'); }
+function deleteEgreso(id){ if(!confirm('¿Eliminar este egreso?')) return; db.egresos=db.egresos.filter(e=>e.id!==id); saveData(); renderEgresosTable(); toast('Egreso eliminado',''); }
+function exportEgresos(){ const rows=db.egresos.map(e=>{const v=e.vehiculoId?getVehicleById(e.vehiculoId):null;return{Fecha:e.fecha,Categoria:e.categoria,Vehiculo:v?(v.patente+' '+(v.marca||'')):'General',Descripcion:e.descripcion,'Monto ARS':e.monto};}); exportToExcel(rows,'Egresos_Serendipia'); }
 
 // ============================================================
 // CONFIGURACIÓN
@@ -1703,62 +1474,18 @@ function modalVehiculo() {
 function openVehModal(){ const m=document.getElementById('modal-veh'); if(!m) return; document.getElementById('veh-id').value=''; document.getElementById('modal-veh-title').textContent='Agregar Vehículo'; ['veh-patente','veh-marca','veh-tipo','veh-desc','veh-otros'].forEach(id=>document.getElementById(id).value=''); document.getElementById('veh-fserv').value=''; document.getElementById('veh-kserv').value=''; m.classList.add('open'); }
 function closeVehModal(){ document.getElementById('modal-veh')?.classList.remove('open'); }
 function editVeh(id){ const v=getVehicleById(id); if(!v) return; document.getElementById('veh-id').value=v.id; document.getElementById('modal-veh-title').textContent='Editar Vehículo'; document.getElementById('veh-patente').value=v.patente||''; document.getElementById('veh-marca').value=v.marca||''; document.getElementById('veh-tipo').value=v.tipo||''; document.getElementById('veh-desc').value=v.descripcion||''; document.getElementById('veh-fserv').value=v.fechaUltimoService||''; document.getElementById('veh-kserv').value=v.kmsUltimoService||''; document.getElementById('veh-otros').value=v.otros||''; document.getElementById('modal-veh').classList.add('open'); }
-async function saveVeh() {
-  const pat = document.getElementById('veh-patente').value.trim().toUpperCase();
-  if (!pat) {
-    toast('La patente es obligatoria', 'error');
-    return;
-  }
-
-  const id = document.getElementById('veh-id').value || genId();
-
-  const payload = {
-    id,
-    patente: pat,
-    marca: document.getElementById('veh-marca').value.trim(),
-    tipo: document.getElementById('veh-tipo').value.trim(),
-    descripcion: document.getElementById('veh-desc').value.trim(),
-    fecha_ultimo_service: document.getElementById('veh-fserv').value || null,
-    kms_ultimo_service: Number(document.getElementById('veh-kserv').value || 0),
-    kms_actuales: Number(document.getElementById('veh-kserv').value || 0),
-    otros: document.getElementById('veh-otros').value.trim()
-  };
-
-  try {
-    const { error } = await supabaseClient
-      .from('vehiculos')
-      .upsert([payload], { onConflict: 'id' });
-
-    if (error) throw error;
-
-    await syncFromSupabase();
-    closeVehModal();
-    toast('Vehículo guardado en la nube', 'success');
-    document.getElementById('t-vehiculos').innerHTML = tabVehiculos();
-  } catch (err) {
-    console.error(err);
-    toast('Error al guardar vehículo: ' + (err.message || err), 'error');
-  }
+function saveVeh(){
+  const pat=document.getElementById('veh-patente').value.trim().toUpperCase();
+  if(!pat){ toast('La patente es obligatoria','error'); return; }
+  const id=document.getElementById('veh-id').value||genId();
+  const existing=db.config.vehiculos.find(v=>v.id===id);
+  const data={id,patente:pat,marca:document.getElementById('veh-marca').value,tipo:document.getElementById('veh-tipo').value,descripcion:document.getElementById('veh-desc').value,fechaUltimoService:document.getElementById('veh-fserv').value,kmsUltimoService:Number(document.getElementById('veh-kserv').value)||0,otros:document.getElementById('veh-otros').value};
+  if(existing) Object.assign(existing,data); else db.config.vehiculos.push(data);
+  saveData(); closeVehModal(); toast('✓ Vehículo guardado','success');
+  document.getElementById('t-vehiculos').innerHTML=tabVehiculos();
 }
-async function delVeh(id){
-  if(!confirm('Eliminar este vehículo? Se perderán sus datos de configuración.')) return;
+function delVeh(id){ if(!confirm('¿Eliminar este vehículo? Se perderán sus datos de configuración.')) return; db.config.vehiculos=db.config.vehiculos.filter(v=>v.id!==id); saveData(); document.getElementById('t-vehiculos').innerHTML=tabVehiculos(); toast('Vehículo eliminado',''); }
 
-  try {
-    const { error } = await supabaseClient
-      .from('vehiculos')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    await syncFromSupabase();
-    document.getElementById('t-vehiculos').innerHTML = tabVehiculos();
-    toast('Vehículo eliminado de la nube', 'success');
-  } catch (err) {
-    console.error(err);
-    toast('Error al eliminar vehículo: ' + (err.message || err), 'error');
-  }
-}
 // ============================================================
 // EXPORT EXCEL
 // ============================================================
